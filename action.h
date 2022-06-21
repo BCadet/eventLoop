@@ -1,5 +1,5 @@
-#ifndef __EVENT_H
-#define __EVENT_H
+#ifndef __ACTION_H
+#define __ACTION_H
 #pragma once
 
 #include <stdint.h>
@@ -8,10 +8,10 @@
 typedef void (*fptr_t)(void *);
 
 
-struct event
+struct action
 {
     void * arg;
     fptr_t command;
 };
 
-#endif // __EVENT_H
+#endif // __ACTION_H

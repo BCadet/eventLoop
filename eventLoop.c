@@ -1,25 +1,72 @@
-#include "fifo_event.h"
+#include "fifo.h"
 #include "eventLoop.h"
+#include "action.h"
 
-enum eventLoop_status eventLoop_init(struct eventLoop *eventLoop)
+eventLoop_state_t eventLoop_init(struct eventLoop *this)
 {
-    enum fifo_event_state status = fifo_event_init(&(eventLoop->eventFifo));
-    return (enum eventLoop_status) status;
+    gll_init(&this->bindingList);
+    this->eventsVector = 0;
+    fifo_state_t state = fifo_init(&(this->actionFifo));
+    return (eventLoop_state_t) state;
 }
 
-enum eventLoop_status eventLoop_loop(struct eventLoop *eventLoop)
+eventLoop_state_t eventLoop_add_event_bindings(struct eventLoop *this, struct event_binding *binding)
 {
-    struct event next_event;
-    enum fifo_event_state status = fifo_event_pop_one(&(eventLoop->eventFifo), &next_event);
-    if(status == fifo_event_ok && next_event.command != NULL)
+    binding->eventsLoopHandle = this;
+    return gll_pushBack(&this->bindingList, binding);
+}
+
+static fifo_state_t execute_action(fifo_t *this)
+{
+    struct action *next_action = (struct action*) fifo_pop_one(this);
+
+    if(next_action == NULL || next_action->command == NULL)
+        return eventLoop_error;
+
+    next_action->command(next_action->arg);
+    return eventLoop_ok;
+}
+
+void test_binding(void *binding)
+{
+    struct event_binding *b = (struct event_binding*) binding;
+    if(b->eventMatchPolicy == matchPolicyOR) // OR
     {
-        next_event.command(next_event.arg);
+        if((b->eventsLoopHandle->eventsVector & b->eventMatchMask) != 0)
+        {
+            eventLoop_post_action(b->eventsLoopHandle, &b->action);
+            b->eventsLoopHandle->eventsVector &= ~(b->eventsLoopHandle->eventsVector & b->eventMatchMask);
+        }
     }
-    return (enum eventLoop_status) status;
+    else // AND
+    {
+        if((b->eventsLoopHandle->eventsVector & b->eventMatchMask) ==  b->eventMatchMask)
+        {
+            eventLoop_post_action(b->eventsLoopHandle, &b->action);
+            b->eventsLoopHandle->eventsVector &= ~b->eventMatchMask;
+        }
+    }
+    
 }
 
-enum eventLoop_status eventLoop_post_event(struct eventLoop *eventLoop, struct event *event)
+static void handle_event(struct eventLoop *this)
 {
-    enum fifo_event_state status = fifo_event_push_one(&(eventLoop->eventFifo), *event);
-    return (enum eventLoop_status) status;
+    gll_each(&this->bindingList, test_binding);
+}
+
+eventLoop_state_t eventLoop_loop(struct eventLoop *this)
+{
+    handle_event(this);
+    return execute_action(&this->actionFifo);
+}
+
+eventLoop_state_t eventLoop_post_action(struct eventLoop *this, struct action *action)
+{
+    fifo_state_t state = fifo_push_one(&(this->actionFifo), action);
+    return (eventLoop_state_t) state;
+}
+
+eventLoop_state_t eventLoop_trigger_event(struct eventLoop *this, uint8_t event)
+{
+    this->eventsVector |= (1<<event);
 }
