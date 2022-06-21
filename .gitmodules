@@ -1,0 +1,3 @@
+[submodule "generic-linked-list"]
+	path = generic-linked-list
+	url = https://github.com/BCadet/generic-linked-list.git

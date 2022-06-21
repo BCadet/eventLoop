@@ -2,24 +2,45 @@
 #define __EVENTLOOP_H
 #pragma once
 
-#include "fifo_event.h"
+#include "fifo.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "gll.h"
+#include "action.h"
 
 struct eventLoop
 {
-    struct fifo_event eventFifo;
+    uint32_t eventsVector;
+    gll_t bindingList;
+    fifo_t actionFifo;
 };
 
-enum eventLoop_status
+typedef enum
 {
-    EventLoop_OK = 0,
-    EventLoop_EMPTY = 1,
-    EventLoop_FULL = 2
+    matchPolicyAND,
+    matchPolicyOR,
+} matchPolicy_t;
+
+struct event_binding
+{
+    struct eventLoop *eventsLoopHandle;
+    struct action action;
+    uint32_t eventMatchMask;
+    matchPolicy_t eventMatchPolicy;
+
 };
 
-enum eventLoop_status eventLoop_init(struct eventLoop *eventLoop);
-enum eventLoop_status eventLoop_loop(struct eventLoop *eventLoop);
-enum eventLoop_status eventLoop_post_event(struct eventLoop *eventLoop, struct event *event);
+typedef enum 
+{
+    eventLoop_ok,
+    eventLoop_error,
+    eventLoop_empty,
+    enventLoop_full,
+} eventLoop_state_t;
 
+eventLoop_state_t eventLoop_init(struct eventLoop *this);
+eventLoop_state_t eventLoop_add_event_bindings(struct eventLoop *this, struct event_binding *binding);
+eventLoop_state_t eventLoop_loop(struct eventLoop *this);
+eventLoop_state_t eventLoop_post_action(struct eventLoop *this, struct action *action);
+eventLoop_state_t eventLoop_trigger_event(struct eventLoop *this, uint8_t event);
 #endif // __ACTION_LOOP_H
