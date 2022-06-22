@@ -3,6 +3,7 @@
 #pragma once
 
 #include "gll.h"
+#include <stdint.h>
 
 typedef gll_t fifo_t;
 
